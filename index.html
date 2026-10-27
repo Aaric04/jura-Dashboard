@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jura Studien-Dashboard • WS 2026/27</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- React 18 & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Firebase App & Firestore SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.5); }
+  </style>
+</head>
+<body class="antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-300">
+  <div id="root"></div>
+
+  <script>
+    const h = React.createElement;
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- FIREBASE INITIALISIERUNG ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXVV8Hj7g1CvuLJW6sq4hIGuvjK_SH1IM",
+      authDomain: "jura-dashboard.firebaseapp.com",
+      projectId: "jura-dashboard",
+      storageBucket: "jura-dashboard.firebasestorage.app",
+      messagingSenderId: "937286999027",
+      appId: "1:937286999027:web:b086cd433542b047fb5086"
+    };
+
+    let db = null;
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      db = firebase.firestore();
+    } catch (err) {
+      console.warn("Firebase Init Fehler:", err);
+    }
+
+    // --- ICONS ---
+    function Icon({ name, className = 'w-4 h-4' }) {
+      const props = {
+        xmlns: 'http://www.w3.org/2000/svg',
+        viewBox: '0 0 24 24',
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 2,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        className
+      };
+
+      const paths = {
+        sparkles: [
+          h('path', { key: 1, d: 'M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z' }),
+          h('path', { key: 2, d: 'M20 3v4' }),
+          h('path', { key: 3, d: 'M22 5h-4' })
+        ],
+        sun: [
+          h('circle', { key: 1, cx: 12, cy: 12, r: 4 }),
+          h('path', { key: 2, d: 'M12 2v2' }),
+          h('path', { key: 3, d: 'M12 20v2' }),
+          h('path', { key: 4, d: 'm4.93 4.93 1.41 1.41' }),
+          h('path', { key: 5, d: 'm17.66 17.66 1.41 1.41' }),
+          h('path', { key: 6, d: 'M2 12h2' }),
+          h('path', { key: 7, d: 'M20 12h2' }),
+          h('path', { key: 8, d: 'm6.34 17.66-1.41 1.41' }),
+          h('path', { key: 9, d: 'm19.07 4.93-1.41 1.41' })
+        ],
+        moon: [
+          h('path', { key: 1, d: 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z' })
+        ],
+        calendar: [
+          h('rect', { key: 1, width: 18, height: 18, x: 3, y: 4, rx: 2, ry: 2 }),
+          h('line', { key: 2, x1: 16, x2: 16, y1: 2, y2: 6 }),
+          h('line', { key: 3, x1: 8, x2: 8, y1: 2, y2: 6 }),
+          h('line', { key: 4, x1: 3, x2: 21, y1: 10, y2: 10 })
+        ],
+        rotateCcw: [
+          h('path', { key: 1, d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }),
+          h('path', { key: 2, d: 'M3 3v5h5' })
+        ],
+        award: [
+          h('circle', { key: 1, cx: 12, cy: 8, r: 6 }),
+          h('path', { key: 2, d: 'M15.477 12.89 17 22l-5-3-5 3 1.523-9.11' })
+        ],
+        target: [
+          h('circle', { key: 1, cx: 12, cy: 12, r: 10 }),
+          h('circle', { key: 2, cx: 12, cy: 12, r: 6 }),
+          h('circle', { key: 3, cx: 12, cy: 12, r: 2 })
+        ],
+        clock: [
+          h('circle', { key: 1, cx: 12, cy: 12, r: 10 }),
+          h('polyline', { key: 2, points: '12 6 12 12 16 14' })
+        ],
+        checkSquare: [
+          h('polyline', { key: 1, points: '9 11 12 14 22 4' }),
+          h('path', { key: 2, d: 'M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' })
+        ],
+        alertCircle: [
+          h('circle', { key: 1, cx: 12, cy: 12, r: 10 }),
+          h('line', { key: 2, x1: 12, x2: 12, y1: 8, y2: 12 }),
+          h('line', { key: 3, x1: 12, x2: 12.01, y1: 16, y2: 16 })
+        ],
+        checkCircle2: [
+          h('circle', { key: 1, cx: 12, cy: 12, r: 10 }),
+          h('path', { key: 2, d: 'm9 12 2 2 4-4' })
+        ],
+        circle: [
+          h('circle', { key: 1, cx: 12, cy: 12, r: 10 })
+        ],
+        trash2: [
+          h('path', { key: 1, d: 'M3 6h18' }),
+          h('path', { key: 2, d: 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6' }),
+          h('path', { key: 3, d: 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2' }),
+          h('line', { key: 4, x1: 10, x2: 10, y1: 11, y2: 17 }),
+          h('line', { key: 5, x1: 14, x2: 14, y1: 11, y2: 17 })
+        ],
+        plus: [
+          h('path', { key: 1, d: 'M5 12h14' }),
+          h('path', { key: 2, d: 'M12 5v14' })
+        ],
+        minus: [
+          h('path', { key: 1, d: 'M5 12h14' })
+        ],
+        layers: [
+          h('path', { key: 1, d: 'm12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z' }),
+          h('path', { key: 2, d: 'm22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65' }),
+          h('path', { key: 3, d: 'm22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65' })
+        ],
+        sliders: [
+          h('line', { key: 1, x1: 4, x2: 4, y1: 21, y2: 14 }),
+          h('line', { key: 2, x1: 4, x2: 4, y1: 10, y2: 3 }),
+          h('line', { key: 3, x1: 12, x2: 12, y1: 21, y2: 12 }),
+          h('line', { key: 4, x1: 12, x2: 12, y1: 8, y2: 3 }),
+          h('line', { key: 5, x1: 20, x2: 20, y1: 21, y2: 16 }),
+          h('line', { key: 6, x1: 20, x2: 20, y1: 12, y2: 3 }),
+          h('line', { key: 7, x1: 2, x2: 6, y1: 14, y2: 14 }),
+          h('line', { key: 8, x1: 10, x2: 14, y1: 8, y2: 8 }),
+          h('line', { key: 9, x1: 18, x2: 22, y1: 16, y2: 16 })
+        ],
+        bookOpen: [
+          h('path', { key: 1, d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z' }),
+          h('path', { key: 2, d: 'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z' })
+        ],
+        video: [
+          h('path', { key: 1, d: 'm16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5' }),
+          h('rect', { key: 2, x: 2, y: 6, width: 14, height: 12, rx: 2 })
+        ],
+        laptop: [
+          h('path', { key: 1, d: 'M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16' })
+        ],
+        chevronDown: [
+          h('path', { key: 1, d: 'm6 9 6 6 6-6' })
+        ],
+        chevronUp: [
+          h('path', { key: 1, d: 'm18 15-6-6-6 6' })
+        ],
+        scale: [
+          h('path', { key: 1, d: 'm16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z' }),
+          h('path', { key: 2, d: 'm2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z' }),
+          h('path', { key: 3, d: 'M7 21h10' }),
+          h('path', { key: 4, d: 'M12 3v18' }),
+          h('path', { key: 5, d: 'M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2' })
+        ],
+        brain: [
+          h('path', { key: 1, d: 'M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z' }),
+          h('path', { key: 2, d: 'M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z' }),
+          h('path', { key: 3, d: 'M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4' }),
+          h('path', { key: 4, d: 'M17.599 6.5a3 3 0 0 0 .399-1.375' }),
+          h('path', { key: 5, d: 'M6.002 6.5A3 3 0 0 1 5.603 5.125' })
+        ],
+        cloudCheck: [
+          h('path', { key: 1, d: 'm9 13 2 2 4-4' }),
+          h('path', { key: 2, d: 'M5 12a7 7 0 0 1 13.9-1.7A5 5 0 0 1 19 20H6a4 4 0 0 1-1-8Z' })
+        ]
+      };
+
+      return h('svg', props, paths[name] || null);
+    }
+
+    function buildItems(prefix, count) {
+      return Array.from({ length: count }, (_, idx) => ({ id: idx + 1, title: `${prefix} ${idx + 1}`, done: false }));
+    }
+
+    const INITIAL_MODULES = [
+      {
+        id: '55106',
+        code: 'Modul 55106',
+        title: 'Schuldrecht Besonderer Teil',
+        shortTitle: 'Schuldrecht BT',
+        badgeClass: 'bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30',
+        cardBorderClass: 'border-blue-500/30 hover:border-blue-500/50',
+        topStripClass: 'bg-gradient-to-r from-blue-600 to-indigo-500',
+        barColor: 'bg-gradient-to-r from-blue-600 to-indigo-500',
+        accentText: 'text-blue-600 dark:text-blue-400',
+        flashcardsDone: false,
+        trackers: {
+          fallbuch: { label: 'Fallbuch Schuldrecht BT', unitPrefix: 'Fall', completed: 0, total: 15, items: buildItems('Fall', 15) },
+          vorlesungen: { label: 'Vorlesungen Schuldrecht BT', unitPrefix: 'Vorlesung', completed: 0, total: 12, items: buildItems('Vorlesung', 12) },
+          onlineLektionen: { label: 'Online-Lektionen', unitPrefix: 'Online-Lektion', completed: 0, total: 10, items: buildItems('Online-Lektion', 10) }
+        }
+      },
+      {
+        id: '55108',
+        code: 'Modul 55108',
+        title: 'Sachenrecht & Kreditsicherung',
+        shortTitle: 'Sachenrecht',
+        badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30',
+        cardBorderClass: 'border-emerald-500/30 hover:border-emerald-500/50',
+        topStripClass: 'bg-gradient-to-r from-emerald-600 to-teal-500',
+        barColor: 'bg-gradient-to-r from-emerald-600 to-teal-500',
+        accentText: 'text-emerald-600 dark:text-emerald-400',
+        flashcardsDone: false,
+        trackers: {
+          fallbuch: { label: 'Fallbuch Sachenrecht', unitPrefix: 'Fall', completed: 0, total: 12, items: buildItems('Fall', 12) },
+          onlineLektionen: { label: 'Online-Lektionen', unitPrefix: 'Online-Lektion', completed: 0, total: 10, items: buildItems('Online-Lektion', 10) }
+        }
+      },
+      {
+        id: '55517',
+        code: 'Modul 55517',
+        title: 'Strafrecht BT I & StPO',
+        shortTitle: 'Strafrecht BT I',
+        badgeClass: 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30',
+        cardBorderClass: 'border-rose-500/30 hover:border-rose-500/50',
+        topStripClass: 'bg-gradient-to-r from-rose-600 to-red-500',
+        barColor: 'bg-gradient-to-r from-rose-600 to-red-500',
+        accentText: 'text-rose-600 dark:text-rose-400',
+        flashcardsDone: false,
+        trackers: {
+          fallbuch: { label: 'Fallbuch Strafrecht BT I & StPO', unitPrefix: 'Fall', completed: 0, total: 14, items: buildItems('Fall', 14) },
+          onlineLektionen: { label: 'Online-Lektionen', unitPrefix: 'Online-Lektion', completed: 0, total: 9, items: buildItems('Online-Lektion', 9) }
+        }
+      }
+    ];
+
+    function getDateKey(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function getISOWeekInfo(dateObj) {
+      const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      const isoYear = d.getUTCFullYear();
+
+      const localCopy = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+      const localDay = localCopy.getDay() || 7;
+      const monday = new Date(localCopy);
+      monday.setDate(localCopy.getDate() - localDay + 1);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      const fmtShort = (dt) => dt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      const fmtFull = (dt) => dt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+      return {
+        weekNo, isoYear, weekKey: `${isoYear}-W${String(weekNo).padStart(2, '0')}`,
+        rangeLabel: `${fmtShort(monday)}. – ${fmtFull(sunday)}`,
+        todayLabel: dateObj.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
+      };
+    }
+
+    function CircularProgress({ percentage, size = 128, strokeWidth = 11, color = '#6366f1', sublabel, isDark }) {
+      const radius = (size - strokeWidth) / 2;
+      const circumference = 2 * Math.PI * radius;
+      const offset = circumference - (Math.min(100, Math.max(0, percentage)) / 100) * circumference;
+      return h('div', { className: 'relative inline-flex items-center justify-center', style: { width: size, height: size } },
+        h('svg', { width: size, height: size, className: 'transform -rotate-90' },
+          h('circle', { cx: size / 2, cy: size / 2, r: radius, fill: 'transparent', stroke: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)', strokeWidth }),
+          h('circle', { cx: size / 2, cy: size / 2, r: radius, fill: 'transparent', stroke: color, strokeWidth, strokeDasharray: circumference, strokeDashoffset: offset, strokeLinecap: 'round', className: 'transition-all duration-700 ease-out' })
+        ),
+        h('div', { className: 'absolute inset-0 flex flex-col items-center justify-center text-center' },
+          h('span', { className: 'text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight' }, `${Math.round(percentage)}%`),
+          sublabel ? h('span', { className: 'text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400' }, sublabel) : null
+        )
+      );
+    }
+
+    function App() {
+      const now = useMemo(() => new Date(), []);
+      const currentDateKey = useMemo(() => getDateKey(now), [now]);
+      const currentWeekInfo = useMemo(() => getISOWeekInfo(now), [now]);
+
+      const [isDark, setIsDark] = useState(() => {
+        const savedTheme = localStorage.getItem('ws2627_theme');
+        return savedTheme ? savedTheme === 'dark' : true;
+      });
+
+      useEffect(() => {
+        const rootEl = document.documentElement;
+        if (isDark) { rootEl.classList.add('dark'); localStorage.setItem('ws2627_theme', 'dark'); }
+        else { rootEl.classList.remove('dark'); localStorage.setItem('ws2627_theme', 'light'); }
+      }, [isDark]);
+
+      // Lokale Basisdaten laden
+      const [modules, setModules] = useState(() => {
+        try {
+          const saved = localStorage.getItem('ws2627_app_v4_modules');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            return parsed.map(m => ({ ...m, flashcardsDone: m.flashcardsDone || false }));
+          }
+          return INITIAL_MODULES;
+        } catch { return INITIAL_MODULES; }
+      });
+
+      const [todos, setTodos] = useState(() => {
+        try {
+          const saved = localStorage.getItem('ws2627_app_v4_todos');
+          return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+      });
+
+      const [metaState, setMetaState] = useState(() => {
+        try {
+          const saved = localStorage.getItem('ws2627_app_v4_meta');
+          return saved ? JSON.parse(saved) : { lastDateKey: currentDateKey, lastWeekKey: currentWeekInfo.weekKey };
+        } catch { return { lastDateKey: currentDateKey, lastWeekKey: currentWeekInfo.weekKey }; }
+      });
+
+      const [syncStatus, setSyncStatus] = useState('Verbinde...');
+      const isRemoteUpdate = useRef(false);
+
+      // --- FIRESTORE REALTIME SYNC ENGINE ---
+      useEffect(() => {
+        if (!db) {
+          setSyncStatus('Lokal (Offline)');
+          return;
+        }
+
+        const docRef = db.collection('dashboard_state').doc('studium_aaric');
+
+        // Snapshot-Listener für automatische Live-Updates auf allen Geräten
+        const unsubscribe = docRef.onSnapshot((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            isRemoteUpdate.current = true;
+            if (data.modules) setModules(data.modules);
+            if (data.todos) setTodos(data.todos);
+            if (data.metaState) setMetaState(data.metaState);
+            setSyncStatus('Cloud synchronisiert');
+            setTimeout(() => { isRemoteUpdate.current = false; }, 200);
+          } else {
+            // Noch kein Cloud-Dokument: Lokalen Stand initial hochladen
+            docRef.set({ modules, todos, metaState, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+              .then(() => setSyncStatus('Cloud synchronisiert'))
+              .catch(err => setSyncStatus('Fehler: ' + err.message));
+          }
+        }, (err) => {
+          console.error("Firestore Sync Fehler:", err);
+          setSyncStatus('Sync-Fehler');
+        });
+
+        return () => unsubscribe();
+      }, []);
+
+      // Änderungen in Firestore speichern & lokal cachen
+      const pushStateToCloud = (newModules, newTodos, newMeta) => {
+        try { localStorage.setItem('ws2627_app_v4_modules', JSON.stringify(newModules)); } catch {}
+        try { localStorage.setItem('ws2627_app_v4_todos', JSON.stringify(newTodos)); } catch {}
+        try { localStorage.setItem('ws2627_app_v4_meta', JSON.stringify(newMeta)); } catch {}
+
+        if (db && !isRemoteUpdate.current) {
+          db.collection('dashboard_state').doc('studium_aaric').set({
+            modules: newModules,
+            todos: newTodos,
+            metaState: newMeta,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }).catch(err => console.error("Firestore Schreibfehler:", err));
+        }
+      };
+
+      // Automatischer Tages- und Wochenwechsel
+      useEffect(() => {
+        if (metaState.lastDateKey !== currentDateKey || metaState.lastWeekKey !== currentWeekInfo.weekKey) {
+          const isNewWeek = metaState.lastWeekKey !== currentWeekInfo.weekKey;
+          const isNewDay = metaState.lastDateKey !== currentDateKey;
+
+          let updatedModules = modules;
+          if (isNewDay) {
+            updatedModules = modules.map(m => ({ ...m, flashcardsDone: false }));
+            setModules(updatedModules);
+          }
+
+          const updatedTodos = todos.map((t) => {
+            let updated = { ...t };
+            if (isNewDay && updated.isToday) {
+              if (updated.completed) { updated.isToday = false; } else { updated.rolledOverFrom = 'Vortag'; }
+            }
+            if (isNewWeek && updated.isWeek) {
+              if (updated.completed) { updated.isWeek = false; updated.isToday = false; } else { updated.rolledOverFrom = `Vorwoche (${metaState.lastWeekKey.split('-')[1]})`; }
+            }
+            return updated;
+          });
+
+          const updatedMeta = { lastDateKey: currentDateKey, lastWeekKey: currentWeekInfo.weekKey };
+          setTodos(updatedTodos);
+          setMetaState(updatedMeta);
+          pushStateToCloud(updatedModules, updatedTodos, updatedMeta);
+        }
+      }, [currentDateKey, currentWeekInfo.weekKey, metaState]);
+
+      const [expandedTracker, setExpandedTracker] = useState({});
+      const [editingTargets, setEditingTargets] = useState({});
+
+      const [newTodayTask, setNewTodayTask] = useState('');
+      const [newTodayModule, setNewTodayModule] = useState('55106');
+      const [newWeekTask, setNewWeekTask] = useState('');
+      const [newWeekModule, setNewWeekModule] = useState('55106');
+      
+      const [moduleInputs, setModuleInputs] = useState({
+        '55106': { text: '', scope: 'backlog' },
+        '55108': { text: '', scope: 'backlog' },
+        '55517': { text: '', scope: 'backlog' }
+      });
+
+      const [dayModuleFilter, setDayModuleFilter] = useState('ALL');
+      const [weekModuleFilter, setWeekModuleFilter] = useState('ALL');
+
+      const moduleProgressMap = useMemo(() => {
+        const result = {};
+        modules.forEach((mod) => {
+          const trackerList = Object.values(mod.trackers);
+          const completedUnits = trackerList.reduce((acc, t) => acc + t.completed, 0);
+          const totalUnits = trackerList.reduce((acc, t) => acc + t.total, 0);
+          const percentage = totalUnits > 0 ? (completedUnits / totalUnits) * 100 : 0;
+          result[mod.id] = { completedUnits, totalUnits, percentage };
+        });
+        return result;
+      }, [modules]);
+
+      const semesterTotals = useMemo(() => {
+        let completed = 0, total = 0;
+        Object.values(moduleProgressMap).forEach((m) => { completed += m.completedUnits; total += m.totalUnits; });
+        const percentage = total > 0 ? (completed / total) * 100 : 0;
+        return { completed, total, percentage };
+      }, [moduleProgressMap]);
+
+      const todayStats = useMemo(() => {
+        const list = todos.filter((t) => t.isToday);
+        const done = list.filter((t) => t.completed).length;
+        const overdue = list.filter((t) => !t.completed && t.rolledOverFrom).length;
+        return { list, done, total: list.length, overdue, percentage: list.length > 0 ? (done / list.length) * 100 : 0 };
+      }, [todos]);
+
+      const weekStats = useMemo(() => {
+        const list = todos.filter((t) => t.isWeek);
+        const done = list.filter((t) => t.completed).length;
+        const overdue = list.filter((t) => !t.completed && t.rolledOverFrom).length;
+        return { list, done, total: list.length, overdue, percentage: list.length > 0 ? (done / list.length) * 100 : 0 };
+      }, [todos]);
+
+      // State Updates mit sofortiger Cloud-Synchronisation
+      const handleTrackerStep = (moduleId, trackerKey, delta) => {
+        const nextModules = modules.map((mod) => {
+          if (mod.id !== moduleId) return mod;
+          const tr = mod.trackers[trackerKey];
+          const nextCompleted = Math.min(tr.total, Math.max(0, tr.completed + delta));
+          const updatedItems = tr.items.map((item, idx) => ({ ...item, done: idx < nextCompleted }));
+          return { ...mod, trackers: { ...mod.trackers, [trackerKey]: { ...tr, completed: nextCompleted, items: updatedItems } } };
+        });
+        setModules(nextModules);
+        pushStateToCloud(nextModules, todos, metaState);
+      };
+
+      const handleToggleChecklistItem = (moduleId, trackerKey, itemId) => {
+        const nextModules = modules.map((mod) => {
+          if (mod.id !== moduleId) return mod;
+          const tr = mod.trackers[trackerKey];
+          const updatedItems = tr.items.map((item) => item.id === itemId ? { ...item, done: !item.done } : item);
+          const newCompleted = updatedItems.filter((i) => i.done).length;
+          return { ...mod, trackers: { ...mod.trackers, [trackerKey]: { ...tr, completed: newCompleted, items: updatedItems } } };
+        });
+        setModules(nextModules);
+        pushStateToCloud(nextModules, todos, metaState);
+      };
+
+      const handleTotalTargetChange = (moduleId, trackerKey, newTotalRaw) => {
+        const newTotal = Math.max(1, Math.min(60, Number(newTotalRaw) || 1));
+        const nextModules = modules.map((mod) => {
+          if (mod.id !== moduleId) return mod;
+          const tr = mod.trackers[trackerKey];
+          let updatedItems = [...tr.items];
+          if (newTotal > updatedItems.length) {
+            for (let i = updatedItems.length + 1; i <= newTotal; i++) { updatedItems.push({ id: Date.now() + i, title: `${tr.unitPrefix || 'Einheit'} ${i}`, done: false }); }
+          } else if (newTotal < updatedItems.length) { updatedItems = updatedItems.slice(0, newTotal); }
+          const nextCompleted = Math.min(newTotal, updatedItems.filter((i) => i.done).length);
+          return { ...mod, trackers: { ...mod.trackers, [trackerKey]: { ...tr, total: newTotal, completed: nextCompleted, items: updatedItems } } };
+        });
+        setModules(nextModules);
+        pushStateToCloud(nextModules, todos, metaState);
+      };
+
+      const toggleFlashcards = (moduleId) => {
+        const nextModules = modules.map(mod => mod.id === moduleId ? { ...mod, flashcardsDone: !mod.flashcardsDone } : mod);
+        setModules(nextModules);
+        pushStateToCloud(nextModules, todos, metaState);
+      };
+
+      const toggleTodo = (id) => {
+        const nextTodos = todos.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t));
+        setTodos(nextTodos);
+        pushStateToCloud(modules, nextTodos, metaState);
+      };
+
+      const deleteTodo = (id) => {
+        const nextTodos = todos.filter((t) => t.id !== id);
+        setTodos(nextTodos);
+        pushStateToCloud(modules, nextTodos, metaState);
+      };
+
+      const toggleToday = (id) => {
+        const nextTodos = todos.map(t => {
+          if (t.id === id) {
+            const newToday = !t.isToday;
+            return { ...t, isToday: newToday, isWeek: newToday ? true : t.isWeek };
+          }
+          return t;
+        });
+        setTodos(nextTodos);
+        pushStateToCloud(modules, nextTodos, metaState);
+      };
+
+      const toggleWeek = (id) => {
+        const nextTodos = todos.map(t => {
+          if (t.id === id) {
+            const newWeek = !t.isWeek;
+            return { ...t, isWeek: newWeek, isToday: newWeek ? t.isToday : false };
+          }
+          return t;
+        });
+        setTodos(nextTodos);
+        pushStateToCloud(modules, nextTodos, metaState);
+      };
+
+      const addTodayTask = (e) => {
+        e.preventDefault();
+        if (!newTodayTask.trim()) return;
+        const nextTodos = [{ id: 't_' + Date.now(), moduleId: newTodayModule, title: newTodayTask.trim(), isToday: true, isWeek: true, completed: false, rolledOverFrom: null }, ...todos];
+        setTodos(nextTodos);
+        pushStateToCloud(modules, nextTodos, metaState);
+        setNewTodayTask('');
+      };
+
+      const addWeekTask = (e) => {
+        e.preventDefault();
+        if (!newWeekTask.trim()) return;
+        const nextTodos = [{ id: 't_' + Date.now(), moduleId: newWeekModule, title: newWeekTask.trim(), isToday: false, isWeek: true, completed: false, rolledOverFrom: null }, ...todos];
+        setTodos(nextTodos);
+        pushStateToCloud(modules, nextTodos, metaState);
+        setNewWeekTask('');
+      };
+
+      const addModuleTask = (e, moduleId) => {
+        e.preventDefault();
+        const input = moduleInputs[moduleId];
+        if (!input || !input.text.trim()) return;
+        const isToday = input.scope === 'today';
+        const isWeek = input.scope === 'today' || input.scope === 'week';
+        
+        const nextTodos = [{ id: 't_' + Date.now(), moduleId, title: input.text.trim(), isToday, isWeek, completed: false, rolledOverFrom: null }, ...todos];
+        setTodos(nextTodos);
+        pushStateToCloud(modules, nextTodos, metaState);
+        setModuleInputs((prev) => ({ ...prev, [moduleId]: { ...prev[moduleId], text: '' } }));
+      };
+
+      const resetAll = () => {
+        if (window.confirm('Möchtest du wirklich alle Fortschritte und Aufgaben auf 0% zurücksetzen?')) {
+          setModules(INITIAL_MODULES);
+          setTodos([]);
+          pushStateToCloud(INITIAL_MODULES, [], metaState);
+        }
+      };
+
+      const getModuleInfo = (modId) => modules.find((m) => m.id === modId) || modules[0];
+      const filterTabs = [{ id: 'ALL', label: 'Alle Module' }, { id: '55106', label: '55106 Schuldrecht BT' }, { id: '55108', label: '55108 Sachenrecht' }, { id: '55517', label: '55517 Strafrecht BT I' }];
+
+      return h('div', { className: 'min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-16 transition-colors duration-300' },
+        h('div', { className: 'fixed inset-0 pointer-events-none overflow-hidden z-0' },
+          h('div', { className: 'absolute -top-28 left-1/4 w-96 h-96 bg-blue-600/10 dark:bg-blue-600/15 rounded-full blur-3xl' }),
+          h('div', { className: 'absolute top-1/3 right-10 w-96 h-96 bg-emerald-600/10 dark:bg-emerald-600/15 rounded-full blur-3xl' }),
+          h('div', { className: 'absolute bottom-0 left-1/3 w-96 h-96 bg-rose-600/10 dark:bg-rose-600/15 rounded-full blur-3xl' })
+        ),
+        h('div', { className: 'relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8' },
+          h('header', { className: 'flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-lg dark:shadow-xl transition-colors' },
+            h('div', { className: 'space-y-1.5' },
+              h('div', { className: 'flex flex-wrap items-center gap-2.5' },
+                h('span', { className: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30' },
+                  h(Icon, { name: 'scale', className: 'w-3.5 h-3.5' }), 'Wintersemester 2026/27'
+                ),
+                h('span', { className: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700' },
+                  h(Icon, { name: 'calendar', className: 'w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400' }), `KW ${currentWeekInfo.weekNo} • ${currentWeekInfo.todayLabel}`
+                ),
+                h('span', { className: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30' },
+                  h(Icon, { name: 'cloudCheck', className: 'w-3.5 h-3.5' }), syncStatus
+                )
+              ),
+              h('h1', { className: 'text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white' }, 'Jura Studien-Dashboard • FernUniversität in Hagen'),
+              h('p', { className: 'text-sm text-slate-500 dark:text-slate-400' }, '55106 Schuldrecht BT • 55108 Sachenrecht • 55517 Strafrecht BT I & StPO')
+            ),
+            h('div', { className: 'flex items-center gap-2.5 self-start lg:self-center' },
+              h('button', { onClick: () => setIsDark((d) => !d), className: 'inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition shadow-sm' },
+                h(Icon, { name: isDark ? 'sun' : 'moon', className: isDark ? 'w-4 h-4 text-amber-400' : 'w-4 h-4 text-indigo-600' }),
+                isDark ? 'Hellmodus' : 'Dunkelmodus'
+              ),
+              h('button', { onClick: resetAll, className: 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-slate-100 hover:bg-rose-500/10 dark:bg-slate-800/90 dark:hover:bg-rose-500/20 text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-300 border border-slate-300 dark:border-slate-700 transition' },
+                h(Icon, { name: 'rotateCcw', className: 'w-3.5 h-3.5' }), 'Reset'
+              )
+            )
+          ),
+          h('section', { className: 'grid grid-cols-1 lg:grid-cols-12 gap-6' },
+            h('div', { className: 'lg:col-span-7 bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg dark:shadow-xl flex flex-col justify-between' },
+              h('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-6' },
+                h('div', { className: 'space-y-2 flex-1' },
+                  h('div', { className: 'inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400' }, h(Icon, { name: 'award', className: 'w-4 h-4' }), 'Gesamtfortschritt • Wintersemester 2026/27'),
+                  h('h2', { className: 'text-xl sm:text-2xl font-bold text-slate-900 dark:text-white' }, 'Alle 3 Module im Überblick'),
+                  h('p', { className: 'text-sm text-slate-500 dark:text-slate-400' }, 'Aggregierter Fortschritt aus allen Fallbüchern, Online-Lektionen sowie den Vorlesungen in Schuldrecht BT.'),
+                  h('div', { className: 'pt-2 flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300' },
+                    h('span', { className: 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 font-medium' }, h('strong', { className: 'text-slate-900 dark:text-white' }, semesterTotals.completed), ' von ', h('strong', { className: 'text-slate-900 dark:text-white' }, semesterTotals.total), ' Einheiten abgeschlossen'),
+                    h('span', { className: 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 font-medium' }, 'Noch ', h('strong', { className: 'text-indigo-600 dark:text-indigo-300' }, semesterTotals.total - semesterTotals.completed), ' offen')
+                  )
+                ),
+                h('div', { className: 'flex items-center justify-center shrink-0' }, h(CircularProgress, { percentage: semesterTotals.percentage, size: 128, strokeWidth: 11, color: '#6366f1', sublabel: 'Semester', isDark }))
+              ),
+              h('div', { className: 'mt-6 pt-5 border-t border-slate-200 dark:border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-4' },
+                modules.map((mod) => {
+                  const mp = moduleProgressMap[mod.id];
+                  return h('div', { key: mod.id, className: 'bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 space-y-2' },
+                    h('div', { className: 'flex items-center justify-between text-xs' }, h('span', { className: `font-bold ${mod.accentText}` }, mod.shortTitle), h('span', { className: 'text-slate-700 dark:text-slate-200 font-bold' }, `${Math.round(mp.percentage)}%`)),
+                    h('div', { className: 'w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden' }, h('div', { className: `h-full ${mod.barColor} transition-all duration-500`, style: { width: `${mp.percentage}%` } })),
+                    h('div', { className: 'flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400' }, h('span', null, mod.code), h('span', null, `${mp.completedUnits}/${mp.totalUnits} Einh.`))
+                  );
+                })
+              )
+            ),
+            h('div', { className: 'lg:col-span-5 bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg dark:shadow-xl flex flex-col justify-between' },
+              h('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-6' },
+                h('div', { className: 'space-y-2 flex-1' },
+                  h('div', { className: 'inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400' }, h(Icon, { name: 'target', className: 'w-4 h-4' }), `Wochenfortschritt • KW ${currentWeekInfo.weekNo}`),
+                  h('h2', { className: 'text-xl sm:text-2xl font-bold text-slate-900 dark:text-white' }, 'Aktuelle Studienwoche'),
+                  h('p', { className: 'text-sm text-slate-500 dark:text-slate-400' }, 'Zeitraum: ', h('strong', { className: 'text-slate-800 dark:text-slate-200' }, currentWeekInfo.rangeLabel)),
+                  h('div', { className: 'pt-2 flex flex-wrap items-center gap-2.5 text-xs' },
+                    h('span', { className: 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium' }, 'Woche: ', h('strong', { className: 'text-emerald-600 dark:text-emerald-400' }, `${weekStats.done}/${weekStats.total}`)),
+                    h('span', { className: 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium' }, 'Heute: ', h('strong', { className: 'text-sky-600 dark:text-sky-400' }, `${todayStats.done}/${todayStats.total}`))
+                  )
+                ),
+                h('div', { className: 'flex items-center justify-center shrink-0' }, h(CircularProgress, { percentage: weekStats.percentage, size: 128, strokeWidth: 11, color: '#10b981', sublabel: `KW ${currentWeekInfo.weekNo}`, isDark }))
+              ),
+              h('div', { className: 'mt-6 pt-5 border-t border-slate-200 dark:border-slate-800/80 space-y-3.5' },
+                h('div', { className: 'space-y-1.5' },
+                  h('div', { className: 'flex items-center justify-between text-xs' }, h('span', { className: 'text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1.5' }, h(Icon, { name: 'clock', className: 'w-3.5 h-3.5 text-sky-500 dark:text-sky-400' }), `Tagesfortschritt (${currentWeekInfo.todayLabel})`), h('span', { className: 'font-bold text-sky-600 dark:text-sky-400' }, `${todayStats.done} / ${todayStats.total} (${Math.round(todayStats.percentage)}%)`)),
+                  h('div', { className: 'w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden' }, h('div', { className: 'h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500', style: { width: `${todayStats.percentage}%` } }))
+                ),
+                h('div', { className: 'space-y-1.5' },
+                  h('div', { className: 'flex items-center justify-between text-xs' }, h('span', { className: 'text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1.5' }, h(Icon, { name: 'calendar', className: 'w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400' }), `Wochenfortschritt (KW ${currentWeekInfo.weekNo})`), h('span', { className: 'font-bold text-emerald-600 dark:text-emerald-400' }, `${weekStats.done} / ${weekStats.total} (${Math.round(weekStats.percentage)}%)`)),
+                  h('div', { className: 'w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden' }, h('div', { className: 'h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500', style: { width: `${weekStats.percentage}%` } }))
+                )
+              )
+            )
+          ),
+          h('section', { className: 'space-y-4' },
+            h('div', null,
+              h('h2', { className: 'text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2' }, h(Icon, { name: 'checkSquare', className: 'w-5 h-5 text-indigo-500 dark:text-indigo-400' }), 'Tages- und Wochenplanung mit Fortschrittsübersicht'),
+              h('p', { className: 'text-xs sm:text-sm text-slate-500 dark:text-slate-400' }, 'Alle Aufgaben sind direkt mit den jeweiligen Modul-To-Do-Listen unten synchronisiert.')
+            ),
+            h('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
+              h('div', { className: 'bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-lg dark:shadow-xl flex flex-col justify-between space-y-5' },
+                h('div', { className: 'space-y-4' },
+                  h('div', { className: 'flex items-start justify-between gap-4' },
+                    h('div', null,
+                      h('div', { className: 'flex items-center gap-2' },
+                        h('span', { className: 'inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400' }, h(Icon, { name: 'clock', className: 'w-3.5 h-3.5' }), `Aufgaben am Tag • ${currentWeekInfo.todayLabel}`),
+                        todayStats.overdue > 0 ? h('span', { className: 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30' }, h(Icon, { name: 'alertCircle', className: 'w-3 h-3' }), `${todayStats.overdue} Übertrag`) : null
+                      ),
+                      h('h3', { className: 'text-lg font-bold text-slate-900 dark:text-white mt-0.5' }, 'Heutiger Fokus')
+                    ),
+                    h('div', { className: 'text-right' }, h('span', { className: 'text-2xl font-extrabold text-sky-600 dark:text-sky-400' }, `${Math.round(todayStats.percentage)}%`), h('p', { className: 'text-xs text-slate-500 dark:text-slate-400' }, `${todayStats.done} von ${todayStats.total} erledigt`))
+                  ),
+                  h('div', { className: 'w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden' }, h('div', { className: 'h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500', style: { width: `${todayStats.percentage}%` } })),
+                  h('div', { className: 'flex flex-wrap items-center gap-1.5 pt-1' }, filterTabs.map((tab) => h('button', { key: tab.id, onClick: () => setDayModuleFilter(tab.id), className: `px-2.5 py-1 rounded-lg text-xs font-medium transition ${dayModuleFilter === tab.id ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/40' : 'bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 border border-transparent'}` }, tab.label))),
+                  h('div', { className: 'space-y-2 max-h-80 overflow-y-auto pr-1' },
+                    todayStats.list.filter((t) => dayModuleFilter === 'ALL' || t.moduleId === dayModuleFilter).map((task) => {
+                      const mod = getModuleInfo(task.moduleId);
+                      return h('div', { key: task.id, className: `group flex items-start justify-between gap-3 p-3 rounded-xl border transition ${task.completed ? 'bg-slate-100/60 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800/60 opacity-65' : task.rolledOverFrom ? 'bg-rose-500/5 dark:bg-rose-950/20 border-rose-500/35' : 'bg-slate-50 dark:bg-slate-950/80 border-slate-200 dark:border-slate-800'}` },
+                        h('button', { onClick: () => toggleTodo(task.id), className: 'flex items-start gap-3 text-left flex-1' },
+                          task.completed ? h(Icon, { name: 'checkCircle2', className: 'w-5 h-5 text-sky-500 dark:text-sky-400 shrink-0 mt-0.5' }) : h(Icon, { name: 'circle', className: 'w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0 mt-0.5' }),
+                          h('div', { className: 'space-y-1' },
+                            h('p', { className: `text-sm leading-snug ${task.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'}` }, task.title),
+                            h('div', { className: 'flex flex-wrap items-center gap-1.5' }, h('span', { className: `inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md border ${mod.badgeClass}` }, mod.shortTitle), task.rolledOverFrom && !task.completed ? h('span', { className: 'inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30' }, h(Icon, { name: 'alertCircle', className: 'w-2.5 h-2.5' }), `Übertrag (${task.rolledOverFrom})`) : null)
+                          )
+                        ),
+                        h('div', { className: 'flex items-center gap-1 shrink-0' }, !task.completed ? h('button', { onClick: () => toggleToday(task.id), className: 'text-[11px] px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition' }, 'Später in KW') : null, h('button', { onClick: () => deleteTodo(task.id), className: 'opacity-60 hover:opacity-100 text-slate-400 hover:text-rose-500 p-1' }, h(Icon, { name: 'trash2', className: 'w-4 h-4' })))
+                      );
+                    }),
+                    todayStats.list.filter((t) => dayModuleFilter === 'ALL' || t.moduleId === dayModuleFilter).length === 0 ? h('div', { className: 'text-center py-8 border border-dashed border-slate-300 dark:border-slate-800 rounded-xl text-slate-400 dark:text-slate-500 text-sm' }, 'Noch keine Tagesaufgaben eingetragen.') : null
+                  )
+                ),
+                h('form', { onSubmit: addTodayTask, className: 'pt-3 border-t border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row gap-2' },
+                  h('select', { value: newTodayModule, onChange: (e) => setNewTodayModule(e.target.value), className: 'bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200' }, modules.map((m) => h('option', { key: m.id, value: m.id }, m.shortTitle))),
+                  h('div', { className: 'flex flex-1 gap-2' }, h('input', { type: 'text', value: newTodayTask, onChange: (e) => setNewTodayTask(e.target.value), placeholder: 'Neue Tagesaufgabe...', className: 'flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 dark:text-white' }), h('button', { type: 'submit', className: 'px-3.5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1 shadow-sm' }, h(Icon, { name: 'plus', className: 'w-4 h-4' }), 'Heute'))
+                )
+              ),
+              h('div', { className: 'bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-lg dark:shadow-xl flex flex-col justify-between space-y-5' },
+                h('div', { className: 'space-y-4' },
+                  h('div', { className: 'flex items-start justify-between gap-4' },
+                    h('div', null,
+                      h('div', { className: 'flex items-center gap-2' }, h('span', { className: 'inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400' }, h(Icon, { name: 'calendar', className: 'w-3.5 h-3.5' }), `Aufgaben in der Woche • KW ${currentWeekInfo.weekNo}`), weekStats.overdue > 0 ? h('span', { className: 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30' }, h(Icon, { name: 'alertCircle', className: 'w-3 h-3' }), `${weekStats.overdue} aus Vorwoche`) : null),
+                      h('h3', { className: 'text-lg font-bold text-slate-900 dark:text-white mt-0.5' }, `Wochenpensum (${currentWeekInfo.rangeLabel})`)
+                    ),
+                    h('div', { className: 'text-right' }, h('span', { className: 'text-2xl font-extrabold text-emerald-600 dark:text-emerald-400' }, `${Math.round(weekStats.percentage)}%`), h('p', { className: 'text-xs text-slate-500 dark:text-slate-400' }, `${weekStats.done} von ${weekStats.total} erledigt`))
+                  ),
+                  h('div', { className: 'w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden' }, h('div', { className: 'h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500', style: { width: `${weekStats.percentage}%` } })),
+                  h('div', { className: 'flex flex-wrap items-center gap-1.5 pt-1' }, filterTabs.map((tab) => h('button', { key: tab.id, onClick: () => setWeekModuleFilter(tab.id), className: `px-2.5 py-1 rounded-lg text-xs font-medium transition ${weekModuleFilter === tab.id ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40' : 'bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 border border-transparent'}` }, tab.label))),
+                  h('div', { className: 'space-y-2 max-h-80 overflow-y-auto pr-1' },
+                    weekStats.list.filter((t) => weekModuleFilter === 'ALL' || t.moduleId === weekModuleFilter).map((task) => {
+                      const mod = getModuleInfo(task.moduleId);
+                      return h('div', { key: task.id, className: `group flex items-start justify-between gap-3 p-3 rounded-xl border transition ${task.completed ? 'bg-slate-100/60 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800/60 opacity-65' : task.rolledOverFrom ? 'bg-rose-500/5 dark:bg-rose-950/20 border-rose-500/35' : 'bg-slate-50 dark:bg-slate-950/80 border-slate-200 dark:border-slate-800'}` },
+                        h('button', { onClick: () => toggleTodo(task.id), className: 'flex items-start gap-3 text-left flex-1' },
+                          task.completed ? h(Icon, { name: 'checkCircle2', className: 'w-5 h-5 text-emerald-500 dark:text-emerald-400 shrink-0 mt-0.5' }) : h(Icon, { name: 'circle', className: 'w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0 mt-0.5' }),
+                          h('div', { className: 'space-y-1' },
+                            h('p', { className: `text-sm leading-snug ${task.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'}` }, task.title),
+                            h('div', { className: 'flex flex-wrap items-center gap-1.5' }, h('span', { className: `inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md border ${mod.badgeClass}` }, mod.shortTitle), task.isToday ? h('span', { className: 'inline-block text-[10px] font-medium px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-500/30' }, 'Heute eingeplant') : null, task.rolledOverFrom && !task.completed ? h('span', { className: 'inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30' }, h(Icon, { name: 'alertCircle', className: 'w-2.5 h-2.5' }), `Übertrag (${task.rolledOverFrom})`) : null)
+                          )
+                        ),
+                        h('div', { className: 'flex items-center gap-1 shrink-0' }, !task.isToday && !task.completed ? h('button', { onClick: () => toggleToday(task.id), className: 'text-[11px] px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition' }, '+ Heute') : null, h('button', { onClick: () => deleteTodo(task.id), className: 'opacity-60 hover:opacity-100 text-slate-400 hover:text-rose-500 p-1' }, h(Icon, { name: 'trash2', className: 'w-4 h-4' })))
+                      );
+                    }),
+                    weekStats.list.filter((t) => weekModuleFilter === 'ALL' || t.moduleId === weekModuleFilter).length === 0 ? h('div', { className: 'text-center py-8 border border-dashed border-slate-300 dark:border-slate-800 rounded-xl text-slate-400 dark:text-slate-500 text-sm' }, 'Noch keine Wochenziele eingetragen.') : null
+                  )
+                ),
+                h('form', { onSubmit: addWeekTask, className: 'pt-3 border-t border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row gap-2' },
+                  h('select', { value: newWeekModule, onChange: (e) => setNewWeekModule(e.target.value), className: 'bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200' }, modules.map((m) => h('option', { key: m.id, value: m.id }, m.shortTitle))),
+                  h('div', { className: 'flex flex-1 gap-2' }, h('input', { type: 'text', value: newWeekTask, onChange: (e) => setNewWeekTask(e.target.value), placeholder: 'Neues Wochenziel...', className: 'flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 dark:text-white' }), h('button', { type: 'submit', className: 'px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1 shadow-sm' }, h(Icon, { name: 'plus', className: 'w-4 h-4' }), 'Woche'))
+                )
+              )
+            )
+          ),
+          h('section', { className: 'space-y-4' },
+            h('div', null,
+              h('h2', { className: 'text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2' }, h(Icon, { name: 'layers', className: 'w-5 h-5 text-indigo-500 dark:text-indigo-400' }), 'Separate Modul-Workspaces (Wintersemester 2026/27)'),
+              h('p', { className: 'text-xs sm:text-sm text-slate-500 dark:text-slate-400' }, 'Aufgaben können hier in der Ablage gespeichert und manuell in die KW/Heute-Ansicht verschoben werden.')
+            ),
+            h('div', { className: 'grid grid-cols-1 lg:grid-cols-3 gap-6 items-start' },
+              modules.map((mod) => {
+                const mp = moduleProgressMap[mod.id];
+                const modTodos = todos.filter((t) => t.moduleId === mod.id);
+                const isEditingTarget = !!editingTargets[mod.id];
+
+                return h('div', { key: mod.id, className: `relative overflow-hidden bg-white/95 dark:bg-slate-900/95 border ${mod.cardBorderClass} rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col justify-between space-y-6` },
+                  h('div', { className: `absolute top-0 left-0 right-0 h-1.5 ${mod.topStripClass}` }),
+                  h('div', { className: 'space-y-4 pt-1' },
+                    h('div', { className: 'flex items-start justify-between gap-3' },
+                      h('div', { className: 'space-y-1' }, h('span', { className: `inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-bold border ${mod.badgeClass}` }, mod.code), h('h3', { className: 'text-xl font-extrabold text-slate-900 dark:text-white pt-1' }, mod.title)),
+                      h('button', { onClick: () => setEditingTargets((p) => ({ ...p, [mod.id]: !p[mod.id] })), className: `p-2 rounded-xl border text-xs transition ${isEditingTarget ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-600 dark:text-indigo-300' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700/80 text-slate-500 dark:text-slate-400'}` }, h(Icon, { name: 'sliders', className: 'w-4 h-4' }))
+                    ),
+                    h('div', { className: 'bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/90 rounded-xl p-3.5 space-y-2' },
+                      h('div', { className: 'flex items-center justify-between text-xs' }, h('span', { className: 'text-slate-500 dark:text-slate-400 font-medium' }, 'Modul-Gesamtfortschritt'), h('span', { className: `font-bold text-sm ${mod.accentText}` }, `${Math.round(mp.percentage)}% (${mp.completedUnits}/${mp.totalUnits})`)),
+                      h('div', { className: 'w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden' }, h('div', { className: `h-full ${mod.barColor} transition-all duration-500`, style: { width: `${mp.percentage}%` } }))
+                    )
+                  ),
+                  
+                  // Flashcard Tracker
+                  h('div', { className: 'pt-1' },
+                    h('button', { 
+                      onClick: () => toggleFlashcards(mod.id), 
+                      className: `w-full flex items-center justify-between p-3.5 rounded-xl border transition-colors ${mod.flashcardsDone ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-700 dark:text-indigo-400' : 'bg-slate-50 dark:bg-slate-950/80 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'}` 
+                    },
+                      h('div', { className: 'flex items-center gap-2.5 font-bold text-sm' }, h(Icon, { name: 'brain', className: 'w-5 h-5' }), 'Karteikarten gelernt'),
+                      mod.flashcardsDone ? h(Icon, { name: 'checkCircle2', className: 'w-6 h-6 text-indigo-500' }) : h('div', { className: 'w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600' })
+                    )
+                  ),
+
+                  h('div', { className: 'space-y-3.5' },
+                    h('div', { className: 'text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500' }, 'Studienmaterial & Lektionen'),
+                    Object.entries(mod.trackers).map(([tKey, tr]) => {
+                      const pct = tr.total > 0 ? (tr.completed / tr.total) * 100 : 0;
+                      const expandId = `${mod.id}_${tKey}`;
+                      let iconName = 'bookOpen'; if (tKey === 'vorlesungen') iconName = 'video'; if (tKey === 'onlineLektionen') iconName = 'laptop';
+                      return h('div', { key: tKey, className: 'bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/90 rounded-xl p-3.5 space-y-3' },
+                        h('div', { className: 'flex items-center justify-between gap-2' },
+                          h('div', { className: 'flex items-center gap-2.5 min-w-0' }, h('div', { className: `p-1.5 rounded-lg border ${mod.badgeClass}` }, h(Icon, { name: iconName, className: 'w-4 h-4 shrink-0' })), h('div', { className: 'min-w-0' }, h('p', { className: 'text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate' }, tr.label), h('p', { className: 'text-[11px] text-slate-500 dark:text-slate-400' }, `${tr.completed} von ${tr.total} erledigt (${Math.round(pct)}%)`))),
+                          h('div', { className: 'flex items-center gap-1 shrink-0' }, h('button', { onClick: () => handleTrackerStep(mod.id, tKey, -1), disabled: tr.completed <= 0, className: 'p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 disabled:opacity-40' }, h(Icon, { name: 'minus', className: 'w-3.5 h-3.5' })), h('button', { onClick: () => handleTrackerStep(mod.id, tKey, 1), disabled: tr.completed >= tr.total, className: 'p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 disabled:opacity-40' }, h(Icon, { name: 'plus', className: 'w-3.5 h-3.5' })), h('button', { onClick: () => setExpandedTracker(p => ({ ...p, [expandId]: !p[expandId] })), className: 'p-1.5 rounded-lg bg-slate-200/70 dark:bg-slate-800/70 ml-0.5' }, h(Icon, { name: expandedTracker[expandId] ? 'chevronUp' : 'chevronDown', className: 'w-3.5 h-3.5' })))
+                        ),
+                        isEditingTarget ? h('div', { className: 'flex items-center justify-between gap-2 pt-1 text-xs bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800' }, h('span', null, 'Gesamt:'), h('input', { type: 'number', min: 1, max: 60, value: tr.total, onChange: (e) => handleTotalTargetChange(mod.id, tKey, e.target.value), className: 'w-16 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 text-right' })) : null,
+                        h('div', { className: 'w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden' }, h('div', { className: `h-full ${mod.barColor} transition-all duration-500`, style: { width: `${pct}%` } })),
+                        expandedTracker[expandId] ? h('div', { className: 'pt-2 border-t border-slate-200 dark:border-slate-800/80 space-y-1.5 max-h-56 overflow-y-auto pr-1' }, tr.items.map((item) => h('button', { key: item.id, onClick: () => handleToggleChecklistItem(mod.id, tKey, item.id), className: 'w-full flex items-center gap-2.5 text-left px-2 py-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-900/90 text-xs' }, item.done ? h(Icon, { name: 'checkCircle2', className: `w-4 h-4 shrink-0 ${mod.accentText}` }) : h(Icon, { name: 'circle', className: 'w-4 h-4 text-slate-400 dark:text-slate-600 shrink-0' }), h('span', { className: item.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200' }, item.title)))) : null
+                      );
+                    })
+                  ),
+                  h('div', { className: 'pt-4 border-t border-slate-200 dark:border-slate-800/90 space-y-3' },
+                    h('div', { className: 'flex items-center justify-between' }, h('span', { className: 'text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500' }, `To-Do-Liste • ${mod.shortTitle}`), h('span', { className: 'text-xs font-semibold text-slate-600 dark:text-slate-300' }, `${modTodos.filter(t => t.completed).length}/${modTodos.length} erledigt`)),
+                    h('div', { className: 'space-y-2 max-h-60 overflow-y-auto pr-1' },
+                      modTodos.map((t) =>
+                        h('div', { key: t.id, className: `group flex items-start justify-between gap-2 p-2.5 rounded-xl border text-xs transition ${t.completed ? 'bg-slate-100/50 dark:bg-slate-950/30 border-slate-200 dark:border-slate-800/50 opacity-60' : 'bg-slate-50 dark:bg-slate-950/80 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:border-slate-700'}` },
+                          h('button', { onClick: () => toggleTodo(t.id), className: 'flex items-start gap-2.5 text-left flex-1' },
+                            t.completed ? h(Icon, { name: 'checkCircle2', className: `w-4 h-4 shrink-0 mt-0.5 ${mod.accentText}` }) : h(Icon, { name: 'circle', className: 'w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 mt-0.5' }),
+                            h('div', { className: 'space-y-1' },
+                              h('p', { className: `leading-snug ${t.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'}` }, t.title),
+                              t.rolledOverFrom && !t.completed ? h('div', { className: 'pt-1' }, h('span', { className: 'px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30 text-[10px]' }, 'Übertrag')) : null
+                            )
+                          ),
+                          h('div', { className: 'flex items-center gap-1 shrink-0' },
+                            h('button', { onClick: () => toggleWeek(t.id), className: `px-1.5 py-1 rounded text-[10px] font-bold border transition ${t.isWeek ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700 hover:text-slate-900 dark:hover:text-white'}` }, 'KW'),
+                            h('button', { onClick: () => toggleToday(t.id), className: `px-1.5 py-1 rounded text-[10px] font-bold border transition ${t.isToday ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/40' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700 hover:text-slate-900 dark:hover:text-white'}` }, 'Heute'),
+                            h('button', { onClick: () => deleteTodo(t.id), className: 'opacity-60 hover:opacity-100 text-slate-400 hover:text-rose-500 p-1 ml-1' }, h(Icon, { name: 'trash2', className: 'w-3.5 h-3.5' }))
+                          )
+                        )
+                      ),
+                      modTodos.length === 0 ? h('div', { className: 'text-center py-4 border border-dashed border-slate-300 dark:border-slate-800 rounded-xl text-slate-400 dark:text-slate-500 text-xs' }, `Noch keine Aufgaben für ${mod.shortTitle}.`) : null
+                    ),
+                    h('form', { onSubmit: (e) => addModuleTask(e, mod.id), className: 'pt-2 flex flex-col gap-2' },
+                      h('div', { className: 'flex gap-1.5' },
+                        h('input', { type: 'text', value: moduleInputs[mod.id]?.text || '', onChange: (e) => setModuleInputs((p) => ({ ...p, [mod.id]: { ...p[mod.id], text: e.target.value } })), placeholder: `Neue Aufgabe...`, className: 'flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500' }),
+                        h('button', { type: 'submit', className: 'px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold' }, 'Add')
+                      ),
+                      h('div', { className: 'flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-slate-500 dark:text-slate-400 px-1' },
+                        h('span', null, 'Ziel:'),
+                        h('label', { className: 'inline-flex items-center gap-1 cursor-pointer' }, h('input', { type: 'radio', name: `scope_${mod.id}`, checked: moduleInputs[mod.id]?.scope === 'backlog', onChange: () => setModuleInputs(p => ({ ...p, [mod.id]: { ...p[mod.id], scope: 'backlog' } })), className: 'accent-slate-500' }), 'Ablage'),
+                        h('label', { className: 'inline-flex items-center gap-1 cursor-pointer' }, h('input', { type: 'radio', name: `scope_${mod.id}`, checked: moduleInputs[mod.id]?.scope === 'week', onChange: () => setModuleInputs(p => ({ ...p, [mod.id]: { ...p[mod.id], scope: 'week' } })), className: 'accent-emerald-500' }), 'Woche'),
+                        h('label', { className: 'inline-flex items-center gap-1 cursor-pointer' }, h('input', { type: 'radio', name: `scope_${mod.id}`, checked: moduleInputs[mod.id]?.scope === 'today', onChange: () => setModuleInputs(p => ({ ...p, [mod.id]: { ...p[mod.id], scope: 'today' } })), className: 'accent-sky-500' }), 'Heute')
+                      )
+                    )
+                  )
+                );
+              })
+            )
+          )
+        )
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(h(App));
+  </script>
+</body>
+</html>
