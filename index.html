@@ -335,8 +335,8 @@
           daysLeftPruef: Math.max(0, Math.ceil((endPruef - Math.max(curr, endLern)) / (1000 * 60 * 60 * 24))),
           isPruefung: curr > endLern
         };
-        
       }, [now]);
+
       const [isDark, setIsDark] = useState(() => {
         const savedTheme = localStorage.getItem('ws2627_theme');
         return savedTheme ? savedTheme === 'dark' : true;
@@ -386,7 +386,6 @@
 
         const docRef = db.collection('dashboard_state').doc('studium_aaric');
 
-        // Snapshot-Listener für automatische Live-Updates auf allen Geräten
         const unsubscribe = docRef.onSnapshot((doc) => {
           if (doc.exists) {
             const data = doc.data();
@@ -397,7 +396,6 @@
             setSyncStatus('Cloud synchronisiert');
             setTimeout(() => { isRemoteUpdate.current = false; }, 200);
           } else {
-            // Noch kein Cloud-Dokument: Lokalen Stand initial hochladen
             docRef.set({ modules, todos, metaState, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
               .then(() => setSyncStatus('Cloud synchronisiert'))
               .catch(err => setSyncStatus('Fehler: ' + err.message));
@@ -410,7 +408,6 @@
         return () => unsubscribe();
       }, []);
 
-      // Änderungen in Firestore speichern & lokal cachen
       const pushStateToCloud = (newModules, newTodos, newMeta) => {
         try { localStorage.setItem('ws2627_app_v4_modules', JSON.stringify(newModules)); } catch {}
         try { localStorage.setItem('ws2627_app_v4_todos', JSON.stringify(newTodos)); } catch {}
@@ -506,7 +503,6 @@
         return { list, done, total: list.length, overdue, percentage: list.length > 0 ? (done / list.length) * 100 : 0 };
       }, [todos]);
 
-      // State Updates mit sofortiger Cloud-Synchronisation
       const handleTrackerStep = (moduleId, trackerKey, delta) => {
         const nextModules = modules.map((mod) => {
           if (mod.id !== moduleId) return mod;
@@ -664,7 +660,7 @@
               )
             )
           ),
-         // --- SEMESTER ZEITLEISTE ---
+          // --- SEMESTER ZEITLEISTE ---
           h('section', { className: 'bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-lg dark:shadow-xl transition-colors' },
             h('div', { className: 'flex justify-between items-end mb-3' },
               h('div', null,
@@ -708,20 +704,6 @@
                 )
               );
             })()
-          ),
-              // Lernzeitraum (Blau)
-              h('div', { className: 'relative h-full bg-indigo-500/20 dark:bg-indigo-500/30', style: { width: `${semesterTimeline.lernPctWidth}%` } },
-                h('div', { className: 'absolute top-0 left-0 h-full bg-indigo-500 transition-all duration-1000', style: { width: `${semesterTimeline.lernFillPct}%` } })
-              ),
-              // Prüfungszeitraum (Rot/Rose)
-              h('div', { className: 'relative h-full bg-rose-500/20 dark:bg-rose-500/30', style: { width: `${semesterTimeline.pruefPctWidth}%` } },
-                h('div', { className: 'absolute top-0 left-0 h-full bg-rose-500 transition-all duration-1000', style: { width: `${semesterTimeline.pruefFillPct}%` } })
-              )
-            ),
-            h('div', { className: 'flex w-full text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium' },
-              h('div', { style: { width: `${semesterTimeline.lernPctWidth}%` } }, 'Lernzeitraum (bis 31.01.)'),
-              h('div', { className: 'text-right', style: { width: `${semesterTimeline.pruefPctWidth}%` } }, 'Prüfungen (bis 31.03.)')
-            )
           ),
           h('section', { className: 'grid grid-cols-1 lg:grid-cols-12 gap-6' },
             h('div', { className: 'lg:col-span-7 bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg dark:shadow-xl flex flex-col justify-between' },
@@ -887,7 +869,7 @@
 
                   h('div', { className: 'space-y-3.5' },
                     h('div', { className: 'text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500' }, 'Studienmaterial & Lektionen'),
-               Object.entries(mod.trackers).map(([tKey, tr]) => {
+                    Object.entries(mod.trackers).map(([tKey, tr]) => {
                       const pct = tr.total > 0 ? (tr.completed / tr.total) * 100 : 0;
                       // NEU: Soll-Berechnung pro Tracker
                       const sollPct = semesterTimeline.lernFillPct;
@@ -921,7 +903,7 @@
                         // NEU: Fortschrittsbalken mit vertikalem Ziel-Strich (Soll-Marker)
                         h('div', { className: 'relative w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full' }, 
                           h('div', { className: `absolute top-0 left-0 h-full ${mod.barColor} rounded-full transition-all duration-500`, style: { width: `${pct}%` } }),
-                          h('div', { className: 'absolute top-[ -3px ] bottom-[ -3px ] w-1 bg-slate-900 dark:bg-white rounded-full z-10 transition-all duration-500 shadow-sm', style: { left: `calc(${sollPct}% - 2px)`, height: '14px', top: '-3px' }, title: `Soll-Fortschritt: ${Math.round(sollPct)}%` })
+                          h('div', { className: 'absolute top-[ -3px ] bottom-[ -3px ] w-1 bg-slate-900 dark:bg-white rounded-full z-10 transition-all duration-500 shadow-sm', style: { left: `calc(${Math.min(100, Math.max(0, sollPct))}% - 2px)`, height: '14px', top: '-3px' }, title: `Soll-Fortschritt: ${Math.round(sollPct)}%` })
                         ),
                         
                         expandedTracker[expandId] ? h('div', { className: 'pt-2 border-t border-slate-200 dark:border-slate-800/80 space-y-1.5 max-h-56 overflow-y-auto pr-1' }, tr.items.map((item) => h('button', { key: item.id, onClick: () => handleToggleChecklistItem(mod.id, tKey, item.id), className: 'w-full flex items-center gap-2.5 text-left px-2 py-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-900/90 text-xs' }, item.done ? h(Icon, { name: 'checkCircle2', className: `w-4 h-4 shrink-0 ${mod.accentText}` }) : h(Icon, { name: 'circle', className: 'w-4 h-4 text-slate-400 dark:text-slate-600 shrink-0' }), h('span', { className: item.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200' }, item.title)))) : null
