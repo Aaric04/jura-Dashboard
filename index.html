@@ -312,6 +312,31 @@
       const currentDateKey = useMemo(() => getDateKey(now), [now]);
       const currentWeekInfo = useMemo(() => getISOWeekInfo(now), [now]);
 
+      // --- ZEITLEISTE LOGIK ---
+      const semesterTimeline = useMemo(() => {
+        const start = new Date('2026-10-01T00:00:00').getTime();
+        const endLern = new Date('2027-01-31T23:59:59').getTime();
+        const endPruef = new Date('2027-03-31T23:59:59').getTime();
+        const curr = now.getTime();
+
+        const totalLern = endLern - start;
+        const totalPruef = endPruef - endLern;
+        const total = endPruef - start;
+
+        const passedLern = Math.max(0, Math.min(curr - start, totalLern));
+        const passedPruef = Math.max(0, Math.min(curr - endLern, totalPruef));
+
+        return {
+          lernPctWidth: (totalLern / total) * 100,
+          pruefPctWidth: (totalPruef / total) * 100,
+          lernFillPct: (passedLern / totalLern) * 100,
+          pruefFillPct: (passedPruef / totalPruef) * 100,
+          daysLeftLern: Math.max(0, Math.ceil((endLern - curr) / (1000 * 60 * 60 * 24))),
+          daysLeftPruef: Math.max(0, Math.ceil((endPruef - Math.max(curr, endLern)) / (1000 * 60 * 60 * 24))),
+          isPruefung: curr > endLern
+        };
+        
+      }, [now]);
       const [isDark, setIsDark] = useState(() => {
         const savedTheme = localStorage.getItem('ws2627_theme');
         return savedTheme ? savedTheme === 'dark' : true;
@@ -637,6 +662,39 @@
               h('button', { onClick: resetAll, className: 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-slate-100 hover:bg-rose-500/10 dark:bg-slate-800/90 dark:hover:bg-rose-500/20 text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-300 border border-slate-300 dark:border-slate-700 transition' },
                 h(Icon, { name: 'rotateCcw', className: 'w-3.5 h-3.5' }), 'Reset'
               )
+            )
+          ),
+          // --- SEMESTER ZEITLEISTE ---
+          h('section', { className: 'bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-lg dark:shadow-xl transition-colors' },
+            h('div', { className: 'flex justify-between items-end mb-3' },
+              h('div', null,
+                h('h3', { className: 'text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2' },
+                  h(Icon, { name: 'calendar', className: 'w-4 h-4 text-indigo-500 dark:text-indigo-400' }),
+                  'Semester-Zeitleiste (WS 2026/27)'
+                ),
+                h('p', { className: 'text-xs text-slate-500 dark:text-slate-400 mt-1' },
+                  semesterTimeline.isPruefung
+                    ? `Prüfungsphase • Noch ${semesterTimeline.daysLeftPruef} Tage bis Semesterende`
+                    : `Lernzeitraum • Noch ${semesterTimeline.daysLeftLern} Tage bis zur Prüfungsphase`
+                )
+              ),
+              h('div', { className: 'text-xs font-medium text-slate-600 dark:text-slate-300' },
+                '01.10.26 – 31.03.27'
+              )
+            ),
+            h('div', { className: 'flex w-full h-3 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-800 gap-1' },
+              // Lernzeitraum (Blau)
+              h('div', { className: 'relative h-full bg-indigo-500/20 dark:bg-indigo-500/30', style: { width: `${semesterTimeline.lernPctWidth}%` } },
+                h('div', { className: 'absolute top-0 left-0 h-full bg-indigo-500 transition-all duration-1000', style: { width: `${semesterTimeline.lernFillPct}%` } })
+              ),
+              // Prüfungszeitraum (Rot/Rose)
+              h('div', { className: 'relative h-full bg-rose-500/20 dark:bg-rose-500/30', style: { width: `${semesterTimeline.pruefPctWidth}%` } },
+                h('div', { className: 'absolute top-0 left-0 h-full bg-rose-500 transition-all duration-1000', style: { width: `${semesterTimeline.pruefFillPct}%` } })
+              )
+            ),
+            h('div', { className: 'flex w-full text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium' },
+              h('div', { style: { width: `${semesterTimeline.lernPctWidth}%` } }, 'Lernzeitraum (bis 31.01.)'),
+              h('div', { className: 'text-right', style: { width: `${semesterTimeline.pruefPctWidth}%` } }, 'Prüfungen (bis 31.03.)')
             )
           ),
           h('section', { className: 'grid grid-cols-1 lg:grid-cols-12 gap-6' },
