@@ -664,7 +664,7 @@
               )
             )
           ),
-          // --- SEMESTER ZEITLEISTE ---
+         // --- SEMESTER ZEITLEISTE ---
           h('section', { className: 'bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-lg dark:shadow-xl transition-colors' },
             h('div', { className: 'flex justify-between items-end mb-3' },
               h('div', null,
@@ -683,6 +683,32 @@
               )
             ),
             h('div', { className: 'flex w-full h-3 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-800 gap-1' },
+              h('div', { className: 'relative h-full bg-indigo-500/20 dark:bg-indigo-500/30', style: { width: `${semesterTimeline.lernPctWidth}%` } },
+                h('div', { className: 'absolute top-0 left-0 h-full bg-indigo-500 transition-all duration-1000', style: { width: `${semesterTimeline.lernFillPct}%` } })
+              ),
+              h('div', { className: 'relative h-full bg-rose-500/20 dark:bg-rose-500/30', style: { width: `${semesterTimeline.pruefPctWidth}%` } },
+                h('div', { className: 'absolute top-0 left-0 h-full bg-rose-500 transition-all duration-1000', style: { width: `${semesterTimeline.pruefFillPct}%` } })
+              )
+            ),
+            h('div', { className: 'flex w-full text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium' },
+              h('div', { style: { width: `${semesterTimeline.lernPctWidth}%` } }, 'Lernzeitraum (bis 31.01.)'),
+              h('div', { className: 'text-right', style: { width: `${semesterTimeline.pruefPctWidth}%` } }, 'Prüfungen (bis 31.03.)')
+            ),
+            // NEU: Berechneter Soll-Fortschritt (Gesamt)
+            (() => {
+              const overallSollUnits = Math.ceil((semesterTotals.total * semesterTimeline.lernFillPct) / 100);
+              const isOverallOnTrack = semesterTotals.completed >= overallSollUnits;
+              const diff = semesterTotals.completed - overallSollUnits;
+              return h('div', { className: 'mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs' },
+                h('span', { className: 'text-slate-600 dark:text-slate-400 font-medium' }, `Dein Soll-Ziel (${Math.round(semesterTimeline.lernFillPct)}% der Lernzeit vergangen):`),
+                h('span', { className: `font-bold px-2.5 py-1 rounded-md border ${isOverallOnTrack ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30'}` },
+                  isOverallOnTrack
+                    ? `Auf Kurs! (Ist: ${semesterTotals.completed} / Soll: ${overallSollUnits})`
+                    : `Rückstand: ${Math.abs(diff)} Einheiten (Ist: ${semesterTotals.completed} / Soll: ${overallSollUnits})`
+                )
+              );
+            })()
+          ),
               // Lernzeitraum (Blau)
               h('div', { className: 'relative h-full bg-indigo-500/20 dark:bg-indigo-500/30', style: { width: `${semesterTimeline.lernPctWidth}%` } },
                 h('div', { className: 'absolute top-0 left-0 h-full bg-indigo-500 transition-all duration-1000', style: { width: `${semesterTimeline.lernFillPct}%` } })
@@ -861,17 +887,43 @@
 
                   h('div', { className: 'space-y-3.5' },
                     h('div', { className: 'text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500' }, 'Studienmaterial & Lektionen'),
-                    Object.entries(mod.trackers).map(([tKey, tr]) => {
+               Object.entries(mod.trackers).map(([tKey, tr]) => {
                       const pct = tr.total > 0 ? (tr.completed / tr.total) * 100 : 0;
+                      // NEU: Soll-Berechnung pro Tracker
+                      const sollPct = semesterTimeline.lernFillPct;
+                      const sollUnits = Math.ceil((tr.total * sollPct) / 100);
+                      const isOnTrack = tr.completed >= sollUnits;
+                      const statusColor = isOnTrack ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400';
+                      const statusText = isOnTrack ? 'Auf Kurs' : 'Rückstand';
+                      
                       const expandId = `${mod.id}_${tKey}`;
                       let iconName = 'bookOpen'; if (tKey === 'vorlesungen') iconName = 'video'; if (tKey === 'onlineLektionen') iconName = 'laptop';
                       return h('div', { key: tKey, className: 'bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/90 rounded-xl p-3.5 space-y-3' },
                         h('div', { className: 'flex items-center justify-between gap-2' },
-                          h('div', { className: 'flex items-center gap-2.5 min-w-0' }, h('div', { className: `p-1.5 rounded-lg border ${mod.badgeClass}` }, h(Icon, { name: iconName, className: 'w-4 h-4 shrink-0' })), h('div', { className: 'min-w-0' }, h('p', { className: 'text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate' }, tr.label), h('p', { className: 'text-[11px] text-slate-500 dark:text-slate-400' }, `${tr.completed} von ${tr.total} erledigt (${Math.round(pct)}%)`))),
-                          h('div', { className: 'flex items-center gap-1 shrink-0' }, h('button', { onClick: () => handleTrackerStep(mod.id, tKey, -1), disabled: tr.completed <= 0, className: 'p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 disabled:opacity-40' }, h(Icon, { name: 'minus', className: 'w-3.5 h-3.5' })), h('button', { onClick: () => handleTrackerStep(mod.id, tKey, 1), disabled: tr.completed >= tr.total, className: 'p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 disabled:opacity-40' }, h(Icon, { name: 'plus', className: 'w-3.5 h-3.5' })), h('button', { onClick: () => setExpandedTracker(p => ({ ...p, [expandId]: !p[expandId] })), className: 'p-1.5 rounded-lg bg-slate-200/70 dark:bg-slate-800/70 ml-0.5' }, h(Icon, { name: expandedTracker[expandId] ? 'chevronUp' : 'chevronDown', className: 'w-3.5 h-3.5' })))
+                          h('div', { className: 'flex items-center gap-2.5 min-w-0' }, 
+                            h('div', { className: `p-1.5 rounded-lg border ${mod.badgeClass}` }, h(Icon, { name: iconName, className: 'w-4 h-4 shrink-0' })), 
+                            h('div', { className: 'min-w-0 flex flex-col gap-0.5' }, 
+                              h('p', { className: 'text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate' }, tr.label), 
+                              h('div', { className: 'text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2' }, 
+                                h('span', null, `${tr.completed} von ${tr.total} (${Math.round(pct)}%)`),
+                                h('span', { className: `font-semibold ${statusColor}` }, `Soll: ${sollUnits} • ${statusText}`)
+                              )
+                            )
+                          ),
+                          h('div', { className: 'flex items-center gap-1 shrink-0' }, 
+                            h('button', { onClick: () => handleTrackerStep(mod.id, tKey, -1), disabled: tr.completed <= 0, className: 'p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 disabled:opacity-40' }, h(Icon, { name: 'minus', className: 'w-3.5 h-3.5' })), 
+                            h('button', { onClick: () => handleTrackerStep(mod.id, tKey, 1), disabled: tr.completed >= tr.total, className: 'p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 disabled:opacity-40' }, h(Icon, { name: 'plus', className: 'w-3.5 h-3.5' })), 
+                            h('button', { onClick: () => setExpandedTracker(p => ({ ...p, [expandId]: !p[expandId] })), className: 'p-1.5 rounded-lg bg-slate-200/70 dark:bg-slate-800/70 ml-0.5' }, h(Icon, { name: expandedTracker[expandId] ? 'chevronUp' : 'chevronDown', className: 'w-3.5 h-3.5' }))
+                          )
                         ),
-                        isEditingTarget ? h('div', { className: 'flex items-center justify-between gap-2 pt-1 text-xs bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800' }, h('span', null, 'Gesamt:'), h('input', { type: 'number', min: 1, max: 60, value: tr.total, onChange: (e) => handleTotalTargetChange(mod.id, tKey, e.target.value), className: 'w-16 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 text-right' })) : null,
-                        h('div', { className: 'w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden' }, h('div', { className: `h-full ${mod.barColor} transition-all duration-500`, style: { width: `${pct}%` } })),
+                        isEditingTarget ? h('div', { className: 'flex items-center justify-between gap-2 pt-1 text-xs bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800' }, h('span', null, 'Gesamtanzahl:'), h('input', { type: 'number', min: 1, max: 60, value: tr.total, onChange: (e) => handleTotalTargetChange(mod.id, tKey, e.target.value), className: 'w-16 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 text-right' })) : null,
+                        
+                        // NEU: Fortschrittsbalken mit vertikalem Ziel-Strich (Soll-Marker)
+                        h('div', { className: 'relative w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full' }, 
+                          h('div', { className: `absolute top-0 left-0 h-full ${mod.barColor} rounded-full transition-all duration-500`, style: { width: `${pct}%` } }),
+                          h('div', { className: 'absolute top-[ -3px ] bottom-[ -3px ] w-1 bg-slate-900 dark:bg-white rounded-full z-10 transition-all duration-500 shadow-sm', style: { left: `calc(${sollPct}% - 2px)`, height: '14px', top: '-3px' }, title: `Soll-Fortschritt: ${Math.round(sollPct)}%` })
+                        ),
+                        
                         expandedTracker[expandId] ? h('div', { className: 'pt-2 border-t border-slate-200 dark:border-slate-800/80 space-y-1.5 max-h-56 overflow-y-auto pr-1' }, tr.items.map((item) => h('button', { key: item.id, onClick: () => handleToggleChecklistItem(mod.id, tKey, item.id), className: 'w-full flex items-center gap-2.5 text-left px-2 py-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-900/90 text-xs' }, item.done ? h(Icon, { name: 'checkCircle2', className: `w-4 h-4 shrink-0 ${mod.accentText}` }) : h(Icon, { name: 'circle', className: 'w-4 h-4 text-slate-400 dark:text-slate-600 shrink-0' }), h('span', { className: item.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200' }, item.title)))) : null
                       );
                     })
